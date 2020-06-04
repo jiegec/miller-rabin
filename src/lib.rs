@@ -79,4 +79,18 @@ mod tests {
 
         assert!(!miller_rabin(&4, TIMES));
     }
+
+    #[test]
+    fn test_ecc_curves() {
+        let one = 1.to_bigint().unwrap();
+
+        // big primes of well known ECC curves
+
+        // Curve 25519
+        assert!(miller_rabin(&((&one << 255) - 19), TIMES));
+        // NIST Curve P-192
+        assert!(miller_rabin(&((&one << 192) - (&one << 64) - 1), TIMES));
+        // NIST Curve P-521
+        assert!(miller_rabin(&((&one << 521) - 1), TIMES));
+    }
 }
