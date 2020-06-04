@@ -3,12 +3,13 @@
 import random
 import time
 
+
 def is_prime(n, k):
     if n <= 1:
         return False
     if n == 2 or n == 3:
         return True
-    
+
     d = n - 1
     r = 0
     while d % 2 == 1:
@@ -20,26 +21,27 @@ def is_prime(n, k):
         x = pow(a, d, n)
         if x == 1 or x == n - 1:
             continue
-        
+
         prime = False
         for j in range(0, r - 1):
             x = pow(x, 2, n)
             if x == n - 1:
                 prime = True
                 break
-        
+
         if prime:
             continue
         else:
             return False
     return True
 
-def check(path):
+
+def check(path, ans):
     with open(path) as f:
         print('Checking', path)
         line = int(f.read())
         start_time = time.time()
-        assert(is_prime(line, 100))
+        assert(is_prime(line, 100) == ans)
         end_time = time.time()
         print('Used {} seconds'.format(end_time - start_time))
 
@@ -52,7 +54,11 @@ assert(is_prime(2**192-2**64-1, 1000))
 assert(is_prime(2**521-1, 1000))
 print('Testing passed')
 
+# generated composites
+check('composite_128', False)
+
 # generated primes
-check('prime_1024')
-check('prime_2048')
-check('prime_4096')
+check('prime_128', True)
+check('prime_1024', True)
+check('prime_2048', True)
+check('prime_4096', True)

@@ -96,6 +96,13 @@ mod tests {
 
     #[test]
     fn test_generated_prime() {
+        // 128
+        let bytes = include_bytes!("../prime_128");
+        assert!(miller_rabin(
+            &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
+            TIMES
+        ));
+
         // 1024
         let bytes = include_bytes!("../prime_1024");
         assert!(miller_rabin(
@@ -113,6 +120,16 @@ mod tests {
         // 4096
         let bytes = include_bytes!("../prime_4096");
         assert!(miller_rabin(
+            &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
+            TIMES
+        ));
+    }
+
+    #[test]
+    fn test_generated_composite() {
+        // 128
+        let bytes = include_bytes!("../composite_128");
+        assert!(!miller_rabin(
             &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
             TIMES
         ));
