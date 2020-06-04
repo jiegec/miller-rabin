@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import random
+import time
 
 def is_prime(n, k):
     if n <= 1:
@@ -37,7 +38,11 @@ def check(path):
     with open(path) as f:
         print('Checking', path)
         line = int(f.read())
-        assert(is_prime(line, 1000))
+        start_time = time.time()
+        assert(is_prime(line, 100))
+        end_time = time.time()
+        print('Used {} seconds'.format(end_time - start_time))
+
 
 # small primes
 assert(is_prime(5, 1000))
