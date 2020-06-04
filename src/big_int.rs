@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt;
-use std::ops::{Add, Shl, Shr};
+use std::ops::{Add, Shl, Shr, Sub};
 
 type Unit = u64;
 const BITS: usize = std::mem::size_of::<Unit>() * 8;
@@ -28,6 +28,12 @@ impl<const COUNT: usize> BigUInt<COUNT> {
         res
     }
 
+    pub fn three() -> BigUInt<COUNT> {
+        let mut res = BigUInt { num: [0; COUNT] };
+        res.num[0] = 3;
+        res
+    }
+
     pub fn is_zero(&self) -> bool {
         for i in 0..COUNT {
             if self.num[i] != 0 {
@@ -37,7 +43,7 @@ impl<const COUNT: usize> BigUInt<COUNT> {
         true
     }
 
-    pub fn lowbit(&self) -> bool {
+    pub fn low_bit(&self) -> bool {
         (self.num[0] & 1) == 1
     }
 
@@ -55,6 +61,16 @@ impl<const COUNT: usize> BigUInt<COUNT> {
             } as Unit;
             res.num[i / (BITS / 4)] |= num << ((i % (BITS / 4)) * 4);
         }
+        res
+    }
+
+    pub fn calc_montgomery_constant(&self) -> Unit {
+        // -n[0]^{-1} mod w
+        inverse_pow2_bits(self.num[0])
+    }
+
+    pub fn pow_mod(&self, pow: &Self, n: &Self) -> Self {
+        let mut res = self.clone();
         res
     }
 }
@@ -98,6 +114,21 @@ impl<const COUNT: usize> Add<BigUInt<COUNT>> for BigUInt<COUNT> {
             let (new, overflow2) = new.overflowing_add(carry);
             self.num[i] = new;
             carry = (overflow || overflow2) as Unit;
+        }
+        self
+    }
+}
+
+impl<const COUNT: usize> Sub<BigUInt<COUNT>> for BigUInt<COUNT> {
+    type Output = BigUInt<COUNT>;
+
+    fn sub(mut self, other: BigUInt<COUNT>) -> Self {
+        let mut borrow = 0;
+        for i in 0..COUNT {
+            let (new, underflow) = self.num[i].overflowing_sub(other.num[i]);
+            let (new, underflow2) = new.overflowing_sub(borrow);
+            self.num[i] = new;
+            borrow = (underflow || underflow2) as Unit;
         }
         self
     }
@@ -182,6 +213,28 @@ impl<const COUNT: usize> fmt::Debug for BigUInt<COUNT> {
     }
 }
 
+/// ax + by = gcd(a, b)
+/// returns (x, y)
+fn extended_gcd(a: Unit, b: Unit) -> (Unit, Unit) {
+    if a == 0 as Unit {
+        return (0, 1);
+    }
+    let (x1, y1) = extended_gcd(b % a, a);
+    let x = y1.wrapping_sub((b / a).wrapping_mul(x1));
+    let y = x1;
+    (x, y)
+}
+
+/// -num^{-1} mod 2^BITS
+fn inverse_pow2_bits(num: Unit) -> Unit {
+    // a = num, b = 2^BITS
+    // b % a = (-a) % a
+    let (x1, y1) = extended_gcd((!num + 1) % num, num);
+    // inverse
+    let x = y1.wrapping_sub((1 + (!num + 1) / num) * x1);
+    return !x + 1;
+}
+
 #[cfg(test)]
 mod tests {
     const C: usize = 4;
@@ -232,5 +285,13 @@ mod tests {
         assert_eq!(BigUInt::<C>::from_hex_str("2"), BigUInt::<C>::two());
         assert_eq!(BigUInt::<C>::from_hex_str("10"), BigUInt::<C>::one() << 4);
         assert_eq!(BigUInt::<C>::from_hex_str("100"), BigUInt::<C>::one() << 8);
+    }
+
+    #[test]
+    fn test_inverse_pow2_bits() {
+        // 2 ** BITS - gmpy2.invert(n, 2 ** BITS)
+        assert_eq!(inverse_pow2_bits(0x3a79c436_46842eff), 0x3857b70d_56252f01);
+        // 25519
+        assert_eq!(inverse_pow2_bits(0xffffffff_ffffffed), 0x86bca1af_286bca1b);
     }
 }
