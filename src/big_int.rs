@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt;
-use std::ops::{Add, Shl};
+use std::ops::{Add, Shl, Shr};
 
 type Unit = u64;
 const BITS: usize = std::mem::size_of::<Unit>() * 8;
@@ -106,14 +106,31 @@ impl<const COUNT: usize> Add<BigUInt<COUNT>> for BigUInt<COUNT> {
 impl<const COUNT: usize> Shl<usize> for BigUInt<COUNT> {
     type Output = BigUInt<COUNT>;
 
-    fn shl(mut self, mut other: usize) -> Self {
+    fn shl(mut self, other: usize) -> Self {
         // only sub word shifting is supported yet
-        other = other % BITS;
+        assert!(other < BITS);
         if other != 0 {
             self.num[COUNT - 1] <<= other;
             for i in (0..COUNT - 1).rev() {
                 self.num[i + 1] |= self.num[i] >> (BITS - other);
                 self.num[i] <<= other;
+            }
+        }
+        self
+    }
+}
+
+impl<const COUNT: usize> Shr<usize> for BigUInt<COUNT> {
+    type Output = BigUInt<COUNT>;
+
+    fn shr(mut self, other: usize) -> Self {
+        // only sub word shifting is supported yet
+        assert!(other < BITS);
+        if other != 0 {
+            self.num[0] >>= other;
+            for i in 1..COUNT {
+                self.num[i - 1] |= self.num[i] << (BITS - other);
+                self.num[i] >>= other;
             }
         }
         self
@@ -197,6 +214,15 @@ mod tests {
         assert_eq!(BigUInt::<C>::one() << 0, BigUInt::<C>::one());
         assert_eq!(BigUInt::<C>::one() << 1, BigUInt::<C>::two());
         assert_eq!(BigUInt::<C>::one() << 3, BigUInt::<C>::two() << 2);
+    }
+
+    #[test]
+    fn shr() {
+        assert_eq!(BigUInt::<C>::zero() >> 1, BigUInt::<C>::zero());
+        assert_eq!(BigUInt::<C>::zero() >> 2, BigUInt::<C>::zero());
+        assert_eq!(BigUInt::<C>::one() >> 0, BigUInt::<C>::one());
+        assert_eq!(BigUInt::<C>::one() >> 1, BigUInt::<C>::zero());
+        assert_eq!(BigUInt::<C>::two() >> 1, BigUInt::<C>::one());
     }
 
     #[test]
