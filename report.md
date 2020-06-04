@@ -2,7 +2,7 @@
 
 分别用 Rust 和 Python 实现了 Miller-Rabin 算法，并且使用 openssl 生成了满足要求的素数，并构造了两个素数的乘积作为合数的测例。
 
-使用 openssl 生成了不同位数的素数，分别在 `prime_128` `prime_1024` `prime_2048` 和 `prime_4096` 文件里。生成的脚本见 `gen_prime.sh` 。
+使用 openssl 生成了不同位数的素数，分别在 `prime_128` `prime_1024` `prime_2048` 和 `prime_4096` 文件里。生成的脚本见 `gen_prime.sh` 。它保证素数最高位和最低位都是 1 。
 
 并且额外生成了两个 64 位素数，把乘积放在 `composite_128` 文件中。
 
