@@ -3,39 +3,40 @@ use std::fmt;
 use std::ops::{Add, Shl, Shr, Sub};
 
 type Unit = u64;
+type DoubleUnit = u128;
 const BITS: usize = std::mem::size_of::<Unit>() * 8;
 
 #[derive(Clone)]
-pub struct BigUInt<const COUNT: usize> {
+pub struct BigUInt<const WORDS: usize> {
     // from low to high
-    num: [Unit; COUNT],
+    num: [Unit; WORDS],
 }
 
-impl<const COUNT: usize> BigUInt<COUNT> {
-    pub fn zero() -> BigUInt<COUNT> {
-        BigUInt { num: [0; COUNT] }
+impl<const WORDS: usize> BigUInt<WORDS> {
+    pub fn zero() -> BigUInt<WORDS> {
+        BigUInt { num: [0; WORDS] }
     }
 
-    pub fn one() -> BigUInt<COUNT> {
-        let mut res = BigUInt { num: [0; COUNT] };
+    pub fn one() -> BigUInt<WORDS> {
+        let mut res = BigUInt { num: [0; WORDS] };
         res.num[0] = 1;
         res
     }
 
-    pub fn two() -> BigUInt<COUNT> {
-        let mut res = BigUInt { num: [0; COUNT] };
+    pub fn two() -> BigUInt<WORDS> {
+        let mut res = BigUInt { num: [0; WORDS] };
         res.num[0] = 2;
         res
     }
 
-    pub fn three() -> BigUInt<COUNT> {
-        let mut res = BigUInt { num: [0; COUNT] };
+    pub fn three() -> BigUInt<WORDS> {
+        let mut res = BigUInt { num: [0; WORDS] };
         res.num[0] = 3;
         res
     }
 
     pub fn is_zero(&self) -> bool {
-        for i in 0..COUNT {
+        for i in 0..WORDS {
             if self.num[i] != 0 {
                 return false;
             }
@@ -48,7 +49,7 @@ impl<const COUNT: usize> BigUInt<COUNT> {
     }
 
     pub fn from_hex_str(input: &str) -> Self {
-        let mut res = Self { num: [0; COUNT] };
+        let mut res = Self { num: [0; WORDS] };
         for (i, ch) in input.bytes().rev().enumerate() {
             let num = if b'0' <= ch && ch <= b'9' {
                 ch - b'0'
@@ -69,22 +70,72 @@ impl<const COUNT: usize> BigUInt<COUNT> {
         inverse_pow2_bits(self.num[0])
     }
 
+    pub fn monty_mul(&self, other: &Self, n: &Self, mc: Unit) -> Self {
+        let mut res = [0; WORDS];
+        let mut res1 = 0;
+        let mut res2;
+        for i in 0..WORDS {
+            let mut c = 0;
+            for j in 0..WORDS {
+                let mut cs = res[j] as DoubleUnit;
+                cs += self.num[j] as DoubleUnit * other.num[i] as DoubleUnit;
+                cs += c as DoubleUnit;
+                c = (cs >> BITS) as Unit;
+                res[j] = cs as Unit;
+            }
+            let cs = res1 as DoubleUnit + c as DoubleUnit;
+            res1 = cs as Unit;
+            res2 = (cs >> BITS) as Unit;
+            let m = (res[0] as DoubleUnit * mc as DoubleUnit) as Unit;
+            let mut cs = res[0] as DoubleUnit + m as DoubleUnit * n.num[0] as DoubleUnit;
+            c = (cs >> BITS) as Unit;
+            for j in 1..WORDS {
+                cs = res[j] as DoubleUnit;
+                cs += m as DoubleUnit * n.num[j] as DoubleUnit;
+                cs += c as DoubleUnit;
+                c = (cs >> BITS) as Unit;
+                res[j - 1] = cs as Unit;
+            }
+            cs = res1 as DoubleUnit + c as DoubleUnit;
+            res[WORDS - 1] = cs as Unit;
+            res1 = res2 + (cs >> BITS) as Unit;
+        }
+        let mut ret = Self { num: res };
+        while ret >= *n {
+            ret = ret - n;
+        }
+        ret
+    }
+
+    /// R = 2^BITS, calculate R^2 mod n
+    pub fn r2n(&self) -> Self {
+        let mc = self.calc_montgomery_constant();
+
+        // init to R-1
+        let mut m = Self { num: [0; WORDS] };
+        for i in 0..WORDS {
+            m.num[i] = Unit::MAX;
+        }
+
+        m
+    }
+
     pub fn pow_mod(&self, pow: &Self, n: &Self) -> Self {
         let mut res = self.clone();
         res
     }
 }
 
-impl<const COUNT: usize> From<Unit> for BigUInt<COUNT> {
+impl<const WORDS: usize> From<Unit> for BigUInt<WORDS> {
     fn from(num: Unit) -> Self {
-        let mut res = BigUInt { num: [0; COUNT] };
+        let mut res = BigUInt { num: [0; WORDS] };
         res.num[0] = num;
         res
     }
 }
 
-impl<const COUNT: usize> Add<Unit> for BigUInt<COUNT> {
-    type Output = BigUInt<COUNT>;
+impl<const WORDS: usize> Add<Unit> for BigUInt<WORDS> {
+    type Output = BigUInt<WORDS>;
 
     fn add(mut self, other: Unit) -> Self {
         let (new, overflow) = self.num[0].overflowing_add(other);
@@ -92,7 +143,7 @@ impl<const COUNT: usize> Add<Unit> for BigUInt<COUNT> {
             // fast path
             self.num[0] = new;
         } else {
-            for i in 1..COUNT {
+            for i in 1..WORDS {
                 let (new, overflow) = self.num[i].overflowing_add(1);
                 self.num[i] = new;
                 if !overflow {
@@ -104,12 +155,12 @@ impl<const COUNT: usize> Add<Unit> for BigUInt<COUNT> {
     }
 }
 
-impl<const COUNT: usize> Add<BigUInt<COUNT>> for BigUInt<COUNT> {
-    type Output = BigUInt<COUNT>;
+impl<const WORDS: usize> Add<BigUInt<WORDS>> for BigUInt<WORDS> {
+    type Output = BigUInt<WORDS>;
 
-    fn add(mut self, other: BigUInt<COUNT>) -> Self {
+    fn add(mut self, other: BigUInt<WORDS>) -> Self {
         let mut carry = 0;
-        for i in 0..COUNT {
+        for i in 0..WORDS {
             let (new, overflow) = self.num[i].overflowing_add(other.num[i]);
             let (new, overflow2) = new.overflowing_add(carry);
             self.num[i] = new;
@@ -119,12 +170,20 @@ impl<const COUNT: usize> Add<BigUInt<COUNT>> for BigUInt<COUNT> {
     }
 }
 
-impl<const COUNT: usize> Sub<BigUInt<COUNT>> for BigUInt<COUNT> {
-    type Output = BigUInt<COUNT>;
+impl<const WORDS: usize> Sub<BigUInt<WORDS>> for BigUInt<WORDS> {
+    type Output = BigUInt<WORDS>;
 
-    fn sub(mut self, other: BigUInt<COUNT>) -> Self {
+    fn sub(self, other: BigUInt<WORDS>) -> Self {
+        self - &other
+    }
+}
+
+impl<const WORDS: usize> Sub<&BigUInt<WORDS>> for BigUInt<WORDS> {
+    type Output = BigUInt<WORDS>;
+
+    fn sub(mut self, other: &BigUInt<WORDS>) -> Self {
         let mut borrow = 0;
-        for i in 0..COUNT {
+        for i in 0..WORDS {
             let (new, underflow) = self.num[i].overflowing_sub(other.num[i]);
             let (new, underflow2) = new.overflowing_sub(borrow);
             self.num[i] = new;
@@ -134,15 +193,15 @@ impl<const COUNT: usize> Sub<BigUInt<COUNT>> for BigUInt<COUNT> {
     }
 }
 
-impl<const COUNT: usize> Shl<usize> for BigUInt<COUNT> {
-    type Output = BigUInt<COUNT>;
+impl<const WORDS: usize> Shl<usize> for BigUInt<WORDS> {
+    type Output = BigUInt<WORDS>;
 
     fn shl(mut self, other: usize) -> Self {
         // only sub word shifting is supported yet
         assert!(other < BITS);
         if other != 0 {
-            self.num[COUNT - 1] <<= other;
-            for i in (0..COUNT - 1).rev() {
+            self.num[WORDS - 1] <<= other;
+            for i in (0..WORDS - 1).rev() {
                 self.num[i + 1] |= self.num[i] >> (BITS - other);
                 self.num[i] <<= other;
             }
@@ -151,15 +210,15 @@ impl<const COUNT: usize> Shl<usize> for BigUInt<COUNT> {
     }
 }
 
-impl<const COUNT: usize> Shr<usize> for BigUInt<COUNT> {
-    type Output = BigUInt<COUNT>;
+impl<const WORDS: usize> Shr<usize> for BigUInt<WORDS> {
+    type Output = BigUInt<WORDS>;
 
     fn shr(mut self, other: usize) -> Self {
         // only sub word shifting is supported yet
         assert!(other < BITS);
         if other != 0 {
             self.num[0] >>= other;
-            for i in 1..COUNT {
+            for i in 1..WORDS {
                 self.num[i - 1] |= self.num[i] << (BITS - other);
                 self.num[i] >>= other;
             }
@@ -168,11 +227,11 @@ impl<const COUNT: usize> Shr<usize> for BigUInt<COUNT> {
     }
 }
 
-impl<const COUNT: usize> Eq for BigUInt<COUNT> {}
+impl<const WORDS: usize> Eq for BigUInt<WORDS> {}
 
-impl<const COUNT: usize> PartialEq for BigUInt<COUNT> {
+impl<const WORDS: usize> PartialEq for BigUInt<WORDS> {
     fn eq(&self, other: &Self) -> bool {
-        for i in 0..COUNT {
+        for i in 0..WORDS {
             if self.num[i] != other.num[i] {
                 return false;
             }
@@ -181,9 +240,9 @@ impl<const COUNT: usize> PartialEq for BigUInt<COUNT> {
     }
 }
 
-impl<const COUNT: usize> Ord for BigUInt<COUNT> {
+impl<const WORDS: usize> Ord for BigUInt<WORDS> {
     fn cmp(&self, other: &Self) -> Ordering {
-        for i in (0..COUNT).rev() {
+        for i in (0..WORDS).rev() {
             if self.num[i] > other.num[i] {
                 return Ordering::Greater;
             } else if self.num[i] < other.num[i] {
@@ -194,17 +253,17 @@ impl<const COUNT: usize> Ord for BigUInt<COUNT> {
     }
 }
 
-impl<const COUNT: usize> PartialOrd for BigUInt<COUNT> {
+impl<const WORDS: usize> PartialOrd for BigUInt<WORDS> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<const COUNT: usize> fmt::Debug for BigUInt<COUNT> {
+impl<const WORDS: usize> fmt::Debug for BigUInt<WORDS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let octets = BITS / 4;
         write!(f, "0x")?;
-        for i in (0..COUNT).rev() {
+        for i in (0..WORDS).rev() {
             let s = format!("{:X}", self.num[i]);
             let pad = octets - s.len();
             write!(f, "{}{}", String::from("0").repeat(pad), s)?
@@ -237,7 +296,7 @@ fn inverse_pow2_bits(num: Unit) -> Unit {
 
 #[cfg(test)]
 mod tests {
-    const C: usize = 4;
+    const C: usize = 2;
     use super::*;
 
     #[test]
