@@ -98,14 +98,23 @@ mod tests {
     fn test_generated_prime() {
         // 1024
         let bytes = include_bytes!("../prime_1024");
-        assert!(miller_rabin(&BigUint::parse_bytes(&bytes[..bytes.len()-1], 10).unwrap(), TIMES));
+        assert!(miller_rabin(
+            &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
+            TIMES
+        ));
 
         // 2048
         let bytes = include_bytes!("../prime_2048");
-        assert!(miller_rabin(&BigUint::parse_bytes(&bytes[..bytes.len()-1], 10).unwrap(), TIMES));
+        assert!(miller_rabin(
+            &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
+            TIMES
+        ));
 
         // 4096
         let bytes = include_bytes!("../prime_4096");
-        assert!(miller_rabin(&BigUint::parse_bytes(&bytes[..bytes.len()-1], 10).unwrap(), TIMES));
+        assert!(miller_rabin(
+            &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
+            TIMES
+        ));
     }
 }

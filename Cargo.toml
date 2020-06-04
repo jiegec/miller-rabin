@@ -9,3 +9,10 @@ edition = "2018"
 [dependencies]
 num-bigint = { version = "0.2", features = ["rand"] }
 rand = "0.5"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "prime"
+harness = false
