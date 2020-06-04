@@ -114,14 +114,14 @@ mod tests {
         let bytes = include_bytes!("../prime_2048");
         assert!(miller_rabin(
             &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
-            TIMES
+            10
         ));
 
         // 4096
         let bytes = include_bytes!("../prime_4096");
         assert!(miller_rabin(
             &BigUint::parse_bytes(&bytes[..bytes.len() - 1], 10).unwrap(),
-            TIMES
+            10
         ));
     }
 
